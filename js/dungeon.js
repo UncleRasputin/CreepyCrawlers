@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  dungeon.js  —  Procedural dungeon generation + FOV
 // ═══════════════════════════════════════════════════════════════
-import { MAP_W, MAP_H, T, ROOM_MIN, ROOM_MAX, ROOM_COUNT_MIN, ROOM_COUNT_MAX } from './config.js';
+import { MAP_W, MAP_H, T, ROOM_MIN, ROOM_MAX, ROOM_COUNT_MIN, ROOM_COUNT_MAX } from './config.js?v=20260308';
 
 // ── Helpers ──────────────────────────────────────────────────────
 function rng(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }

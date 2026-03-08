@@ -2,11 +2,11 @@
 //  game.js  —  Core game loop, state machine, turn processing
 // ═══════════════════════════════════════════════════════════════
 import { CHAR_DEFS, ENEMY_DEFS, ENEMIES_BY_FLOOR, ENEMY_COUNT, ITEM_COUNT,
-         FLOOR_THEMES, TOTAL_FLOORS, T } from './config.js';
-import { Dungeon }    from './dungeon.js';
-import { Player, Enemy, GroundItem } from './entities.js';
-import { randomItem } from './items.js';
-import { Renderer }   from './renderer.js';
+         FLOOR_THEMES, TOTAL_FLOORS, T } from './config.js?v=20260308';
+import { Dungeon }    from './dungeon.js?v=20260308';
+import { Player, Enemy, GroundItem } from './entities.js?v=20260308';
+import { randomItem } from './items.js?v=20260308';
+import { Renderer }   from './renderer.js?v=20260308';
 
 const FOV_RADIUS  = 7;
 const SCORE_KEY   = 'creepyCrawlersScores';
@@ -44,6 +44,7 @@ export class Game {
     this._showScreen('title');
     this._loadScoresDisplay();
     window.addEventListener('keydown', this._boundKey);
+    this._initTouchControls();
   }
 
   // ═══ Screen management ════════════════════════════════════════
@@ -95,6 +96,20 @@ export class Game {
     document.getElementById('btn-gotitle2').addEventListener('click', () => this._showScreen('title'));
     // Scores
     document.getElementById('btn-scores-back').addEventListener('click', () => this._showScreen('title'));
+
+    // Touch D-pad
+    document.querySelectorAll('.tc-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.state !== 'playing') return;
+        const action = btn.dataset.action;
+        if (action === 'wait')    { this._processTurn(0, 0); return; }
+        if (action === 'ability') { this._useAbility(); return; }
+        const dx = parseInt(btn.dataset.dx ?? '0');
+        const dy = parseInt(btn.dataset.dy ?? '0');
+        this._processTurn(dx, dy);
+      });
+    });
     // Level-up choices handled dynamically
   }
 
@@ -157,6 +172,7 @@ export class Game {
     const canvas = document.getElementById('game-canvas');
     if (!this.renderer) {
       this.renderer = new Renderer(canvas, theme);
+      this._initResizeObserver();
     } else {
       this.renderer.setTheme(theme);
     }
@@ -171,6 +187,52 @@ export class Game {
     if (this.floor === TOTAL_FLOORS) {
       this.addLog('⚠️ The Ant Queen awaits in the depths…', 'warning');
     }
+  }
+
+  // ═══ Touch controls (swipe on canvas = directional move) ══════
+  _initTouchControls() {
+    let touchStartX = 0, touchStartY = 0;
+    const MIN_SWIPE = 20;   // px
+
+    const canvas = document.getElementById('game-canvas');
+
+    canvas.addEventListener('touchstart', e => {
+      if (this.state !== 'playing') return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', e => {
+      if (this.state !== 'playing') return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      const ax = Math.abs(dx), ay = Math.abs(dy);
+      if (ax < MIN_SWIPE && ay < MIN_SWIPE) {
+        // Tap = wait
+        this._processTurn(0, 0);
+      } else if (ax >= ay) {
+        this._processTurn(dx > 0 ? 1 : -1, 0);
+      } else {
+        this._processTurn(0, dy > 0 ? 1 : -1);
+      }
+    }, { passive: true });
+  }
+
+  // ═══ Resize  ══════════════════════════════════════════════════
+  _initResizeObserver() {
+    const wrapper = document.querySelector('.canvas-wrapper');
+    const doResize = () => {
+      if (this.renderer && wrapper.clientWidth > 0 && wrapper.clientHeight > 0) {
+        this.renderer.resize(wrapper.clientWidth, wrapper.clientHeight);
+      }
+    };
+    if (window.ResizeObserver) {
+      this._resizeObserver = new ResizeObserver(doResize);
+      this._resizeObserver.observe(wrapper);
+    } else {
+      window.addEventListener('resize', doResize);
+    }
+    doResize();   // run immediately
   }
 
   // ═══ Render loop ══════════════════════════════════════════════

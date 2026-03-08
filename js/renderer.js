@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  renderer.js  —  Canvas rendering
 // ═══════════════════════════════════════════════════════════════
-import { T, TILE, VIEW_W, VIEW_H, MAP_W, MAP_H } from './config.js';
+import { T, TILE, VIEW_W, VIEW_H, MAP_W, MAP_H } from './config.js?v=20260308';
 
 const EMOJI_FONT = (size) => `${size}px serif`;
 
@@ -10,6 +10,7 @@ export class Renderer {
     this.canvas = canvas;
     this.ctx    = canvas.getContext('2d');
     this.theme  = theme;
+    this.tileSize = TILE;          // dynamic — updated by resize()
     this.cw     = VIEW_W * TILE;
     this.ch     = VIEW_H * TILE;
     canvas.width  = this.cw;
@@ -22,6 +23,16 @@ export class Renderer {
     this.flashColor = 'rgba(200,0,0,0.25)';
     // Particle effects
     this.particles = [];
+  }
+
+  /** Called whenever the canvas wrapper changes size */
+  resize(availW, availH) {
+    const ts = Math.max(8, Math.min(24, Math.floor(Math.min(availW / VIEW_W, availH / VIEW_H))));
+    this.tileSize     = ts;
+    this.cw           = VIEW_W * ts;
+    this.ch           = VIEW_H * ts;
+    this.canvas.width  = this.cw;
+    this.canvas.height = this.ch;
   }
 
   setTheme(theme) { this.theme = theme; }
@@ -94,7 +105,8 @@ export class Renderer {
 
   // ── Tile drawing ─────────────────────────────────────────────────
   _drawTile(ctx, tx, ty, tileType, visible, theme) {
-    const px = tx * TILE, py = ty * TILE;
+    const ts = this.tileSize;
+    const px = tx * ts, py = ty * ts;
 
     let bg;
     if (tileType === T.WALL || tileType === T.VOID) {
@@ -104,40 +116,40 @@ export class Renderer {
     }
 
     ctx.fillStyle = bg;
-    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillRect(px, py, ts, ts);
 
     if (!visible) {
-      // Dim overlay for explored-but-not-visible
       ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(px, py, TILE, TILE);
+      ctx.fillRect(px, py, ts, ts);
     }
 
     if (tileType === T.WALL) {
-      // Subtle noise texture on walls
       ctx.fillStyle = visible ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.0)';
-      const quarter = TILE / 4;
+      const quarter = ts / 4;
       for (let i = 0; i < 4; i++) {
-        ctx.fillRect(px + (i % 2) * TILE / 2, py + Math.floor(i / 2) * TILE / 2, quarter, quarter);
+        ctx.fillRect(px + (i % 2) * ts / 2, py + Math.floor(i / 2) * ts / 2, quarter, quarter);
       }
     } else if (tileType === T.STAIR_DOWN) {
-      this._drawGlyph(ctx, tx, ty, '▾', visible ? theme.accent : '#555', Math.floor(TILE * 0.75));
+      this._drawGlyph(ctx, tx, ty, '▾', visible ? theme.accent : '#555', Math.floor(ts * 0.75));
     } else if (tileType === T.STAIR_UP) {
-      this._drawGlyph(ctx, tx, ty, '▴', visible ? theme.accent : '#555', Math.floor(TILE * 0.75));
+      this._drawGlyph(ctx, tx, ty, '▴', visible ? theme.accent : '#555', Math.floor(ts * 0.75));
     }
   }
 
   _drawGlyph(ctx, tx, ty, glyph, color, fsize) {
+    const ts = this.tileSize;
     ctx.fillStyle = color;
     ctx.font = `bold ${fsize}px monospace`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(glyph, tx * TILE + TILE / 2, ty * TILE + TILE / 2);
+    ctx.fillText(glyph, tx * ts + ts / 2, ty * ts + ts / 2);
   }
 
   _drawEmoji(ctx, tx, ty, emoji, scale = 1.0) {
-    const size  = Math.floor(TILE * 0.85 * scale);
-    const px    = tx * TILE + TILE / 2;
-    const py    = ty * TILE + TILE / 2;
+    const ts  = this.tileSize;
+    const size = Math.floor(ts * 0.85 * scale);
+    const px   = tx * ts + ts / 2;
+    const py   = ty * ts + ts / 2;
     ctx.font    = EMOJI_FONT(size);
     ctx.textAlign    = 'center';
     ctx.textBaseline = 'middle';
@@ -145,33 +157,32 @@ export class Renderer {
   }
 
   _drawPlayerTile(ctx, tx, ty, player) {
-    const px = tx * TILE, py = ty * TILE;
-    // highlight background
+    const ts = this.tileSize;
+    const px = tx * ts, py = ty * ts;
     ctx.fillStyle = 'rgba(100,180,100,0.25)';
-    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillRect(px, py, ts, ts);
     this._drawEmoji(ctx, tx, ty, player.emoji);
   }
 
   _drawEnemyTile(ctx, tx, ty, enemy) {
-    const px = tx * TILE, py = ty * TILE;
-    // tinted bg
+    const ts = this.tileSize;
+    const px = tx * ts, py = ty * ts;
     ctx.fillStyle = enemy.boss ? 'rgba(180,50,50,0.35)' : 'rgba(40,40,40,0.6)';
-    ctx.fillRect(px, py, TILE, TILE);
+    ctx.fillRect(px, py, ts, ts);
     this._drawEmoji(ctx, tx, ty, enemy.emoji, enemy.boss ? 1.1 : 0.85);
-    // HP bar for enemies
     this._drawMiniHpBar(ctx, px, py, enemy.hp, enemy.maxHp);
-    // Stun indicator
     if (enemy.stunned > 0) {
-      ctx.font = `${Math.floor(TILE * 0.5)}px serif`;
+      ctx.font = `${Math.floor(ts * 0.5)}px serif`;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
-      ctx.fillText('💤', px + TILE, py);
+      ctx.fillText('💤', px + ts, py);
     }
   }
 
   _drawMiniHpBar(ctx, px, py, hp, maxHp) {
-    const bw = TILE - 2, bh = 3;
-    const bx = px + 1, by = py + TILE - bh - 1;
+    const ts = this.tileSize;
+    const bw = ts - 2, bh = Math.max(2, Math.floor(ts / 5));
+    const bx = px + 1, by = py + ts - bh - 1;
     ctx.fillStyle = '#333';
     ctx.fillRect(bx, by, bw, bh);
     const frac = Math.max(0, hp / maxHp);
@@ -181,8 +192,9 @@ export class Renderer {
 
   // ── Particles ─────────────────────────────────────────────────
   spawnDamageNumber(mapX, mapY, text, color = '#fff') {
-    const sx = (mapX - this.camX) * TILE + TILE / 2;
-    const sy = (mapY - this.camY) * TILE;
+    const ts = this.tileSize;
+    const sx = (mapX - this.camX) * ts + ts / 2;
+    const sy = (mapY - this.camY) * ts;
     this.particles.push({ x: sx, y: sy, text, color, life: 28, maxLife: 28, vy: -0.7 });
   }
 

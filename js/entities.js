@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  entities.js  —  Player and Enemy classes
 // ═══════════════════════════════════════════════════════════════
-import { CHAR_DEFS, ENEMY_DEFS, XP_PER_LEVEL } from './config.js';
+import { CHAR_DEFS, ENEMY_DEFS, XP_PER_LEVEL } from './config.js?v=20260308';
 
 // ── Utility ──────────────────────────────────────────────────────
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }

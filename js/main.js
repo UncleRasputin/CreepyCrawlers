@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════════
 //  main.js  —  Entry point
 // ═══════════════════════════════════════════════════════════════
-import { Game } from './game.js';
+import { Game } from './game.js?v=20260308';
 
 const game = new Game();
 game.init();
