@@ -1,12 +1,24 @@
 // ═══════════════════════════════════════════════════════════════
 //  game.js  —  Core game loop, state machine, turn processing
 // ═══════════════════════════════════════════════════════════════
-import { CHAR_DEFS, ENEMY_DEFS, ENEMIES_BY_FLOOR, ENEMY_COUNT, ITEM_COUNT,
-         FLOOR_THEMES, TOTAL_FLOORS, T } from './config.js?v=20260308';
-import { Dungeon }    from './dungeon.js?v=20260308';
-import { Player, Enemy, GroundItem } from './entities.js?v=20260308';
-import { randomItem } from './items.js?v=20260308';
-import { Renderer }   from './renderer.js?v=20260308';
+
+// Derive cache-bust version from the single meta tag in index.html so that
+// updating <meta name="cache-v"> in index.html refreshes every module at once.
+const _cv = document.querySelector('meta[name="cache-v"]')?.content ?? 'dev';
+
+const [
+  { CHAR_DEFS, ENEMY_DEFS, ENEMIES_BY_FLOOR, ENEMY_COUNT, ITEM_COUNT, FLOOR_THEMES, TOTAL_FLOORS, T },
+  { Dungeon },
+  { Player, Enemy, GroundItem },
+  { randomItem },
+  { Renderer },
+] = await Promise.all([
+  import(`./config.js?v=${_cv}`),
+  import(`./dungeon.js?v=${_cv}`),
+  import(`./entities.js?v=${_cv}`),
+  import(`./items.js?v=${_cv}`),
+  import(`./renderer.js?v=${_cv}`),
+]);
 
 const FOV_RADIUS  = 7;
 const SCORE_KEY   = 'creepyCrawlersScores';
@@ -97,19 +109,6 @@ export class Game {
     // Scores
     document.getElementById('btn-scores-back').addEventListener('click', () => this._showScreen('title'));
 
-    // Touch D-pad
-    document.querySelectorAll('.tc-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (this.state !== 'playing') return;
-        const action = btn.dataset.action;
-        if (action === 'wait')    { this._processTurn(0, 0); return; }
-        if (action === 'ability') { this._useAbility(); return; }
-        const dx = parseInt(btn.dataset.dx ?? '0');
-        const dy = parseInt(btn.dataset.dy ?? '0');
-        this._processTurn(dx, dy);
-      });
-    });
     // Level-up choices handled dynamically
   }
 
@@ -189,33 +188,80 @@ export class Game {
     }
   }
 
-  // ═══ Touch controls (swipe on canvas = directional move) ══════
+  // ═══ Virtual joystick (replaces swipe + old D-pad) ═══════════
   _initTouchControls() {
-    let touchStartX = 0, touchStartY = 0;
-    const MIN_SWIPE = 20;   // px
+    const base = document.getElementById('joystick-base');
+    const knob = document.getElementById('joystick-knob');
+    if (!base || !knob) return;
 
-    const canvas = document.getElementById('game-canvas');
+    let _trackId  = null;
+    let _originX  = 0, _originY = 0;
+    const DEAD_ZONE  = 14;   // px — smaller than this = wait
+    const MAX_TRAVEL = 32;   // max knob visual travel
 
-    canvas.addEventListener('touchstart', e => {
-      if (this.state !== 'playing') return;
-      touchStartX = e.touches[0].clientX;
-      touchStartY = e.touches[0].clientY;
-    }, { passive: true });
+    const moveKnob = (cx, cy) => {
+      const dx = cx - _originX;
+      const dy = cy - _originY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist < 1 ? 0 : Math.min(dist, MAX_TRAVEL) / dist;
+      knob.style.transform =
+        `translate(calc(-50% + ${dx * ratio}px), calc(-50% + ${dy * ratio}px))`;
+      return { dx, dy };
+    };
 
-    canvas.addEventListener('touchend', e => {
-      if (this.state !== 'playing') return;
-      const dx = e.changedTouches[0].clientX - touchStartX;
-      const dy = e.changedTouches[0].clientY - touchStartY;
-      const ax = Math.abs(dx), ay = Math.abs(dy);
-      if (ax < MIN_SWIPE && ay < MIN_SWIPE) {
-        // Tap = wait
-        this._processTurn(0, 0);
-      } else if (ax >= ay) {
-        this._processTurn(dx > 0 ? 1 : -1, 0);
-      } else {
-        this._processTurn(0, dy > 0 ? 1 : -1);
+    const resetKnob = () => { knob.style.transform = 'translate(-50%, -50%)'; };
+
+    base.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (this.state !== 'playing' || _trackId !== null) return;
+      const t = e.changedTouches[0];
+      _trackId = t.identifier;
+      const r = base.getBoundingClientRect();
+      _originX = r.left + r.width  / 2;
+      _originY = r.top  + r.height / 2;
+      moveKnob(t.clientX, t.clientY);
+    }, { passive: false });
+
+    base.addEventListener('touchmove', e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier === _trackId) moveKnob(t.clientX, t.clientY);
       }
-    }, { passive: true });
+    }, { passive: false });
+
+    const endJoystick = e => {
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier !== _trackId) continue;
+        _trackId = null;
+        const { dx, dy } = moveKnob(t.clientX, t.clientY);
+        resetKnob();
+        if (this.state !== 'playing') return;
+        const ax = Math.abs(dx), ay = Math.abs(dy);
+        if (ax < DEAD_ZONE && ay < DEAD_ZONE) { this._processTurn(0, 0); return; }
+        // 8-directional via angle sector
+        const angle  = Math.atan2(dy, dx);
+        const sector = Math.round(angle / (Math.PI / 4));
+        const sdx = Math.sign(Math.round(Math.cos(sector * Math.PI / 4)));
+        const sdy = Math.sign(Math.round(Math.sin(sector * Math.PI / 4)));
+        this._processTurn(sdx, sdy);
+      }
+    };
+
+    base.addEventListener('touchend',    endJoystick, { passive: false });
+    base.addEventListener('touchcancel', endJoystick, { passive: false });
+
+    // Action buttons
+    document.getElementById('joy-ability')?.addEventListener('click', e => {
+      e.stopPropagation();
+      if (this.state !== 'playing') return;
+      this._useAbility();
+    });
+    document.getElementById('joy-wait')?.addEventListener('click', e => {
+      e.stopPropagation();
+      if (this.state !== 'playing') return;
+      this._processTurn(0, 0);
+    });
   }
 
   // ═══ Resize  ══════════════════════════════════════════════════

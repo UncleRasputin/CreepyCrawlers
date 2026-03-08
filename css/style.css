@@ -33,8 +33,23 @@ html, body {
 }
 
 /* ═══════════════════════════ SCREENS ═══════════════════════════ */
-.screen { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; }
+.screen {
+  display: none; width: 100%; height: 100%;
+  align-items: flex-start; justify-content: center;
+  overflow-y: auto;
+}
 .screen.active { display: flex; }
+/* Screens whose content is small enough to centre vertically */
+#screen-title,
+#screen-gameover,
+#screen-victory {
+  align-items: center;
+}
+/* Game screen: no scrolling — the game-layout manages its own overflow */
+#screen-game {
+  overflow: hidden;
+  align-items: stretch;
+}
 
 /* ═══════════════════════════ TITLE SCREEN ═══════════════════════════ */
 .title-container {
@@ -81,8 +96,10 @@ html, body {
 .charselect-container {
   display: flex; flex-direction: column; align-items: center; gap: 24px;
   padding: 30px;
+  /* allow the container to shrink and scroll on short viewports */
+  width: 100%; max-width: 900px;
 }
-.charselect-container h2 { font-size: 2rem; color: var(--accent); letter-spacing: 3px; }
+.charselect-container h2 { font-size: 2rem; color: var(--accent); letter-spacing: 3px; flex-shrink: 0; }
 
 .char-cards { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
 
@@ -115,8 +132,8 @@ html, body {
 .game-layout {
   display: flex;
   flex-direction: row;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -297,7 +314,8 @@ html, body {
 
 /* ═══════════════════════════ SCORES ═══════════════════════════ */
 .scores-container {
-  display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 40px;
+  display: flex; flex-direction: column; align-items: center; gap: 20px;
+  padding: 40px; width: 100%;
 }
 .scores-container h2 { font-size: 2rem; color: var(--accent2); letter-spacing: 3px; }
 
@@ -316,54 +334,100 @@ html, body {
 .score-pts   { color: var(--accent); font-weight: bold; }
 .score-empty { color: var(--text-dim); text-align: center; padding: 20px; }
 
-/* ═══════════════════════════ TOUCH D-PAD ═══════════════════════════ */
-#touch-controls {
-  display: none;   /* shown only on coarse pointer via media query below */
+/* ═══════════════════════════ VIRTUAL JOYSTICK ═══════════════════════════ */
+#joystick-zone {
+  display: none;          /* only shown on coarse-pointer / touch devices */
   position: absolute;
-  bottom: 16px;
-  left: 12px;
-  width: 132px;
-  grid-template-columns: repeat(3, 40px);
-  grid-template-rows: repeat(3, 40px);
-  gap: 3px;
+  bottom: 20px;
+  left: 16px;
+  align-items: flex-end;
+  gap: 14px;
   z-index: 50;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
-.tc-btn {
-  background: rgba(30, 30, 40, 0.85);
-  border: 1px solid var(--border);
+@media (hover: none) and (pointer: coarse) {
+  #joystick-zone { display: flex; }
+}
+
+#joystick-base {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(10, 10, 20, 0.72);
+  border: 2px solid rgba(110, 208, 110, 0.30);
+  box-shadow: 0 0 24px rgba(0, 0, 0, 0.55);
+  position: relative;
+  touch-action: none;
+  flex-shrink: 0;
+}
+
+#joystick-knob {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%,
+    rgba(110, 208, 110, 0.85), rgba(50, 130, 50, 0.7));
+  border: 2px solid var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.joy-hint {
+  position: absolute;
+  font-size: 0.7rem;
+  color: rgba(110, 208, 110, 0.35);
+  pointer-events: none;
+  line-height: 1;
+}
+.joy-n { top: 5px;    left: 50%; transform: translateX(-50%); }
+.joy-s { bottom: 5px; left: 50%; transform: translateX(-50%); }
+.joy-w { left: 5px;   top: 50%;  transform: translateY(-50%); }
+.joy-e { right: 5px;  top: 50%;  transform: translateY(-50%); }
+
+#joystick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.joy-action-btn {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: rgba(10, 10, 20, 0.78);
   color: var(--text);
-  border-radius: 6px;
   font-size: 1.1rem;
+  font-weight: bold;
   cursor: pointer;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  line-height: 1.1;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
   transition: background 0.1s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
-.tc-btn:active { background: rgba(110, 208, 110, 0.3); }
+.joy-action-btn span {
+  font-size: 0.48rem;
+  font-weight: normal;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.65;
+  margin-top: 1px;
+}
+.joy-action-btn:active { background: rgba(60, 90, 60, 0.9); }
 
-.tc-center  { color: var(--text-dim); }
-.tc-ability {
-  position: absolute;
-  bottom: 0;
-  left: 144px;   /* right of the d-pad */
-  width: 52px;
-  height: 52px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  background: rgba(60, 100, 60, 0.85);
-  border-color: var(--accent);
-  color: var(--accent);
-  border-radius: 8px;
-}
-
-/* Only show on touch/coarse pointer devices */
-@media (hover: none) and (pointer: coarse) {
-  #touch-controls { display: grid; }
-}
+#joy-ability   { border-color: var(--accent);  color: var(--accent); }
+.joy-wait-btn  { font-size: 1.6rem; color: var(--text-dim); }
 
 /* ═══════════════════════════ SCROLLBAR ═══════════════════════════ */
 ::-webkit-scrollbar { width: 6px; }
@@ -409,9 +473,11 @@ html, body {
     border-left: none;
     border-top: 2px solid var(--border);
     flex-direction: row;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     overflow-y: hidden;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
   }
 
   /* Each sidebar section becomes an inline block */
@@ -422,6 +488,7 @@ html, body {
     min-width: 130px;
     max-width: 180px;
     overflow: hidden;
+    scroll-snap-align: start;
   }
 
   /* Hide lower-priority sections on small screens */
@@ -447,8 +514,9 @@ html, body {
 
   .game-title  { font-size: 2.6rem; letter-spacing: 3px; }
   .char-cards  { gap: 10px; }
-  .char-card   { width: 180px; padding: 14px; }
+  .char-card   { width: 160px; padding: 12px; }
   .char-emoji  { font-size: 2.2rem; }
+  .charselect-container { padding: 16px 10px; gap: 14px; }
 }
 
 /* Touch — larger hit targets */

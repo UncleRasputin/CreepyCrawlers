@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- ↓ ONLY change this value to bust all asset caches on deploy ↓ -->
+  <meta name="cache-v" content="20260309">
   <title>Creepy Crawlers</title>
-  <link rel="stylesheet" href="css/style.css?v=20260308">
+  <link id="main-css" rel="stylesheet" href="css/style.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪲</text></svg>">
 </head>
 <body>
@@ -21,7 +23,7 @@
           <button id="btn-newgame" class="menu-btn primary">New Game</button>
           <button id="btn-scores" class="menu-btn">High Scores</button>
         </div>
-        <p class="title-hint">Navigate with WASD or Arrow Keys · Bump enemies to attack</p>
+        <p class="title-hint">WASD / Arrow Keys to move · Bump enemies to attack · On mobile: use the joystick</p>
       </div>
     </div>
 
@@ -77,18 +79,19 @@
         <!-- Canvas -->
         <div class="canvas-wrapper">
           <canvas id="game-canvas"></canvas>
-          <!-- Touch controls (visible on touch screens only) -->
-          <div id="touch-controls">
-            <button class="tc-btn tc-dir" data-dx="-1" data-dy="-1">↖</button>
-            <button class="tc-btn tc-dir" data-dx="0"  data-dy="-1">↑</button>
-            <button class="tc-btn tc-dir" data-dx="1"  data-dy="-1">↗</button>
-            <button class="tc-btn tc-dir" data-dx="-1" data-dy="0">←</button>
-            <button class="tc-btn tc-center" data-action="wait">·</button>
-            <button class="tc-btn tc-dir" data-dx="1"  data-dy="0">→</button>
-            <button class="tc-btn tc-dir" data-dx="-1" data-dy="1">↙</button>
-            <button class="tc-btn tc-dir" data-dx="0"  data-dy="1">↓</button>
-            <button class="tc-btn tc-dir" data-dx="1"  data-dy="1">↘</button>
-            <button class="tc-btn tc-ability" data-action="ability">Q</button>
+          <!-- Virtual joystick (visible on touch screens only) -->
+          <div id="joystick-zone">
+            <div id="joystick-base">
+              <div id="joystick-knob"></div>
+              <span class="joy-hint joy-n">↑</span>
+              <span class="joy-hint joy-s">↓</span>
+              <span class="joy-hint joy-w">←</span>
+              <span class="joy-hint joy-e">→</span>
+            </div>
+            <div id="joystick-actions">
+              <button id="joy-ability" class="joy-action-btn">Q<br><span>Ability</span></button>
+              <button id="joy-wait"    class="joy-action-btn joy-wait-btn">·<br><span>Wait</span></button>
+            </div>
           </div>
         </div>
         <!-- Sidebar -->
@@ -146,6 +149,7 @@
               <span>.</span><span>Wait</span>
               <span>1-6</span><span>Use item</span>
               <span>Esc</span><span>Menu</span>
+              <span>Joystick</span><span>Touch move</span>
             </div>
           </div>
 
@@ -224,6 +228,18 @@
 
   </div>
 
-  <script type="module" src="js/main.js?v=20260308"></script>
+  <!-- Apply cache-busting version to CSS, then bootstrap game module -->
+  <script>
+    (function () {
+      var cv = document.querySelector('meta[name="cache-v"]').content;
+      document.getElementById('main-css').href = 'css/style.css?v=' + cv;
+    })();
+  </script>
+  <script type="module">
+    const cv = document.querySelector('meta[name="cache-v"]').content;
+    const { Game } = await import('./js/game.js?v=' + cv);
+    const game = new Game();
+    game.init();
+  </script>
 </body>
 </html>
