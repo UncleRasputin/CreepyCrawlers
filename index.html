@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Creepy Crawlers</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪲</text></svg>">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ═══════════════════════════════ TITLE SCREEN ═══════════════════════════════ -->
+    <div id="screen-title" class="screen active">
+      <div class="title-container">
+        <div class="title-bugs">🦟 🕷️ 🪲 🐜 🦗 🐛</div>
+        <h1 class="game-title">CREEPY CRAWLERS</h1>
+        <p class="subtitle">A Bug-Infested Dungeon Crawler</p>
+        <div class="title-bugs flip">🐝 🪱 🦂 🐞 🪳 🦋</div>
+        <div class="title-menu">
+          <button id="btn-newgame" class="menu-btn primary">New Game</button>
+          <button id="btn-scores" class="menu-btn">High Scores</button>
+        </div>
+        <p class="title-hint">Navigate with WASD or Arrow Keys · Bump enemies to attack</p>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════ CHARACTER SELECT ════════════════════════════ -->
+    <div id="screen-charselect" class="screen">
+      <div class="charselect-container">
+        <h2>Choose Your Bug</h2>
+        <div class="char-cards">
+          <div class="char-card" data-class="beetle">
+            <div class="char-emoji">🪲</div>
+            <div class="char-name">Beetle Knight</div>
+            <div class="char-desc">Tough as nails with an armored shell. Slow but nearly indestructible.</div>
+            <div class="char-stats">
+              <span class="stat">❤️ 35</span>
+              <span class="stat">⚔️ 5</span>
+              <span class="stat">🛡️ 6</span>
+              <span class="stat">💨 1</span>
+            </div>
+            <div class="char-ability">Ability: <em>Shell Up</em> — double defense for 3 turns</div>
+          </div>
+          <div class="char-card" data-class="spider">
+            <div class="char-emoji">🕷️</div>
+            <div class="char-name">Spider Rogue</div>
+            <div class="char-desc">Fast and deadly. Can web enemies in place for easy takedowns.</div>
+            <div class="char-stats">
+              <span class="stat">❤️ 22</span>
+              <span class="stat">⚔️ 8</span>
+              <span class="stat">🛡️ 2</span>
+              <span class="stat">💨 2</span>
+            </div>
+            <div class="char-ability">Ability: <em>Web Shot</em> — stun an adjacent enemy for 2 turns</div>
+          </div>
+          <div class="char-card" data-class="mosquito">
+            <div class="char-emoji">🦟</div>
+            <div class="char-name">Mosquito Mage</div>
+            <div class="char-desc">Drains life from enemies. Fragile but devastating at range.</div>
+            <div class="char-stats">
+              <span class="stat">❤️ 18</span>
+              <span class="stat">⚔️ 9</span>
+              <span class="stat">🛡️ 1</span>
+              <span class="stat">💨 1</span>
+            </div>
+            <div class="char-ability">Ability: <em>Life Drain</em> — deal 8 dmg, heal 4 HP (ranged)</div>
+          </div>
+        </div>
+        <button id="btn-back" class="menu-btn small">← Back</button>
+      </div>
+    </div>
+
+    <!-- ════════════════════════════════ GAME SCREEN ════════════════════════════════ -->
+    <div id="screen-game" class="screen">
+      <div class="game-layout">
+        <!-- Canvas -->
+        <div class="canvas-wrapper">
+          <canvas id="game-canvas"></canvas>
+        </div>
+        <!-- Sidebar -->
+        <div id="sidebar">
+          <div class="sidebar-section" id="player-info">
+            <div class="player-header">
+              <span id="ui-emoji" class="player-emoji">🪲</span>
+              <div class="player-details">
+                <div id="ui-classname" class="player-class">Beetle Knight</div>
+                <div id="ui-level">Level 1</div>
+              </div>
+            </div>
+            <div class="stat-bar-row">
+              <span class="stat-label">❤️ HP</span>
+              <div class="stat-bar-bg"><div id="hp-bar" class="stat-bar hp-bar"></div></div>
+              <span id="ui-hp" class="stat-num">35/35</span>
+            </div>
+            <div class="stat-bar-row">
+              <span class="stat-label">✨ XP</span>
+              <div class="stat-bar-bg"><div id="xp-bar" class="stat-bar xp-bar"></div></div>
+              <span id="ui-xp" class="stat-num">0/10</span>
+            </div>
+            <div class="mini-stats">
+              <div>⚔️ ATK: <span id="ui-atk">5</span></div>
+              <div>🛡️ DEF: <span id="ui-def">6</span></div>
+              <div>💨 SPD: <span id="ui-spd">1</span></div>
+              <div>🏆 Gold: <span id="ui-gold">0</span></div>
+            </div>
+          </div>
+
+          <div class="sidebar-section" id="floor-info">
+            <div id="ui-floor-name" class="floor-name">Floor 1: The Garden</div>
+            <div id="ui-floor-num" class="floor-num">Depth 1 / 5</div>
+          </div>
+
+          <div class="sidebar-section" id="ability-section">
+            <div class="section-title">ABILITY</div>
+            <div id="ui-ability-name" class="ability-name">Shell Up</div>
+            <div id="ui-ability-key" class="ability-key">Press [Q] to use</div>
+            <div id="ui-ability-cd" class="ability-cd"></div>
+          </div>
+
+          <div class="sidebar-section" id="inventory-section">
+            <div class="section-title">INVENTORY <span id="ui-inv-count">(0/6)</span></div>
+            <div id="ui-inventory" class="inventory-grid"></div>
+            <div class="inv-hint">Press [1-6] to use item</div>
+          </div>
+
+          <div class="sidebar-section" id="controls-section">
+            <div class="section-title">CONTROLS</div>
+            <div class="controls-grid">
+              <span>WASD / ↑↓←→</span><span>Move/Attack</span>
+              <span>Numpad 1-9</span><span>Diagonals</span>
+              <span>Q</span><span>Ability</span>
+              <span>.</span><span>Wait</span>
+              <span>1-6</span><span>Use item</span>
+              <span>Esc</span><span>Menu</span>
+            </div>
+          </div>
+
+          <div class="sidebar-section" id="log-section">
+            <div class="section-title">LOG</div>
+            <div id="message-log"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pause overlay -->
+      <div id="pause-overlay" class="overlay hidden">
+        <div class="overlay-box">
+          <h2>Paused</h2>
+          <button id="btn-resume" class="menu-btn">Resume</button>
+          <button id="btn-quit" class="menu-btn">Quit to Title</button>
+        </div>
+      </div>
+
+      <!-- Level up overlay -->
+      <div id="levelup-overlay" class="overlay hidden">
+        <div class="overlay-box">
+          <h2>✨ LEVEL UP! ✨</h2>
+          <p id="levelup-text"></p>
+          <p class="levelup-choose">Choose a bonus:</p>
+          <div id="levelup-choices" class="levelup-choices"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════ GAME OVER SCREEN ══════════════════════════════ -->
+    <div id="screen-gameover" class="screen">
+      <div class="end-container">
+        <div class="end-skull">💀</div>
+        <h2 class="end-title gameover-title">YOU HAVE PERISHED</h2>
+        <p id="gameover-flavor"></p>
+        <div class="end-stats">
+          <div>Floor Reached: <span id="go-floor">1</span></div>
+          <div>Enemies Slain: <span id="go-kills">0</span></div>
+          <div>Gold Collected: <span id="go-gold">0</span></div>
+          <div>Final Score: <span id="go-score">0</span></div>
+        </div>
+        <div class="end-buttons">
+          <button id="btn-retry" class="menu-btn primary">Try Again</button>
+          <button id="btn-gotitle" class="menu-btn">Title Screen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════ VICTORY SCREEN ══════════════════════════════ -->
+    <div id="screen-victory" class="screen">
+      <div class="end-container">
+        <div class="end-skull">👑</div>
+        <h2 class="end-title victory-title">THE QUEEN FALLS!</h2>
+        <p>You have defeated the Ant Queen and freed the underground realm!</p>
+        <div class="end-stats">
+          <div>Enemies Slain: <span id="win-kills">0</span></div>
+          <div>Gold Collected: <span id="win-gold">0</span></div>
+          <div>Final Score: <span id="win-score">0</span></div>
+        </div>
+        <div class="end-buttons">
+          <button id="btn-playagain" class="menu-btn primary">Play Again</button>
+          <button id="btn-gotitle2" class="menu-btn">Title Screen</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════ HIGH SCORES SCREEN ══════════════════════════════ -->
+    <div id="screen-scores" class="screen">
+      <div class="scores-container">
+        <h2>🏆 High Scores</h2>
+        <div id="scores-list"></div>
+        <button id="btn-scores-back" class="menu-btn">← Back</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
