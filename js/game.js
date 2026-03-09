@@ -48,8 +48,9 @@ export class Game {
     this._loopId    = null;
     this._boundKey  = this._onKey.bind(this);
     this._lastRender = 0;
-    this._arcade      = null;
-    this._arcadeReady = false;
+    this._arcade        = null;
+    this._arcadeReady   = false;
+    this._arcadeInitPromise = null;   // resolves (true/false) when init settles
   }
 
   // ═══ Initialise ═══════════════════════════════════════════════
@@ -58,37 +59,46 @@ export class Game {
     this._showScreen('title');
     window.addEventListener('keydown', this._boundKey);
     this._initTouchControls();
-    this._initArcade();   // non-blocking — safe to call without await
+    this._arcadeInitPromise = this._initArcade();   // non-blocking — store promise so leaderboard can await it
   }
 
   // ═══ Arcade integration ═══════════════════════════════════════
   async _initArcade() {
     try {
-      this._arcade = new Arcade({ gameId: 'creepycrawlers' });
+      this._arcade = new Arcade({ gameId: 'creepycrawlers', debug: true });
       await this._arcade.ready();
       this._arcadeReady = true;
+      console.log('[CC] Arcade ready. Player:', this._arcade.player);
       // Prompt for name on first visit
       if (this._arcade.player.name.startsWith('PLAYER_')) {
         const name = prompt('Enter your player name for the leaderboard:');
         if (name && name.trim()) this._arcade.setPlayerName(name.trim());
       }
+      return true;
     } catch (err) {
-      console.warn('[Creepy Crawlers] Arcade offline:', err.message);
+      console.warn('[CC] Arcade failed to init:', err.message);
       this._arcadeReady = false;
+      return false;
     }
   }
 
   async _submitArcadeScore(score) {
-    if (!this._arcadeReady) return;
+    if (!this._arcadeReady) {
+      console.warn('[CC] submitScore skipped — arcade not ready');
+      return;
+    }
     const p = this.player;
-    await this._arcade.submitScore({
+    const meta = {
       score: Number(score),
       floor: Number(this.floor),
       kills: Number(p.kills),
       gold:  Number(p.gold),
       level: Number(p.level),
-      class: String(p.charClass),   // "beetle" | "spider" | "mosquito"
-    });
+      class: String(p.charClass),
+    };
+    console.log('[CC] Submitting score:', meta);
+    const result = await this._arcade.submitScore(meta);
+    console.log('[CC] Submit result:', result);
   }
 
   // ═══ Screen management ════════════════════════════════════════
@@ -605,14 +615,22 @@ export class Game {
     const el = document.getElementById('scores-list');
     if (!el) return;
 
+    // Wait for arcade to finish initialising if it hasn't yet
+    if (!this._arcadeReady && this._arcadeInitPromise) {
+      el.innerHTML = '<div class="score-empty">Connecting…</div>';
+      await this._arcadeInitPromise;
+    }
+
     if (!this._arcadeReady) {
-      el.innerHTML = '<div class="score-empty">Leaderboard offline — play a game to connect!</div>';
+      el.innerHTML = '<div class="score-empty">Leaderboard offline — check your connection.</div>';
       return;
     }
 
     el.innerHTML = '<div class="score-empty">Loading…</div>';
 
     const board = await this._arcade.getLeaderboard();
+    console.log('[CC] Leaderboard response:', board);
+
     if (!board || !board.leaderboard || board.leaderboard.length === 0) {
       el.innerHTML = '<div class="score-empty">No scores yet. Go crawl!</div>';
       return;
