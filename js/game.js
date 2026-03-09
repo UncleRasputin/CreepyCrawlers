@@ -82,12 +82,12 @@ export class Game {
     if (!this._arcadeReady) return;
     const p = this.player;
     await this._arcade.submitScore({
-      score,
-      floor: this.floor,
-      kills: p.kills,
-      gold:  p.gold,
-      level: p.level,
-      class: p.charClass,
+      score: Number(score),
+      floor: Number(this.floor),
+      kills: Number(p.kills),
+      gold:  Number(p.gold),
+      level: Number(p.level),
+      class: String(p.charClass),   // "beetle" | "spider" | "mosquito"
     });
   }
 
