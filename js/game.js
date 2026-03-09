@@ -12,17 +12,17 @@ const [
   { Player, Enemy, GroundItem },
   { randomItem },
   { Renderer },
+  { default: Arcade },
 ] = await Promise.all([
   import(`./config.js?v=${_cv}`),
   import(`./dungeon.js?v=${_cv}`),
   import(`./entities.js?v=${_cv}`),
   import(`./items.js?v=${_cv}`),
   import(`./renderer.js?v=${_cv}`),
+  import(`../arcade.js?v=${_cv}`),
 ]);
 
 const FOV_RADIUS  = 7;
-const SCORE_KEY   = 'creepyCrawlersScores';
-const MAX_SCORES  = 10;
 
 function rng(a, b) { return a + Math.floor(Math.random() * (b - a + 1)); }
 
@@ -48,15 +48,47 @@ export class Game {
     this._loopId    = null;
     this._boundKey  = this._onKey.bind(this);
     this._lastRender = 0;
+    this._arcade      = null;
+    this._arcadeReady = false;
   }
 
   // ═══ Initialise ═══════════════════════════════════════════════
   init() {
     this._bindScreenButtons();
     this._showScreen('title');
-    this._loadScoresDisplay();
     window.addEventListener('keydown', this._boundKey);
     this._initTouchControls();
+    this._initArcade();   // non-blocking — safe to call without await
+  }
+
+  // ═══ Arcade integration ═══════════════════════════════════════
+  async _initArcade() {
+    try {
+      this._arcade = new Arcade({ gameId: 'creepycrawlers' });
+      await this._arcade.ready();
+      this._arcadeReady = true;
+      // Prompt for name on first visit
+      if (this._arcade.player.name.startsWith('PLAYER_')) {
+        const name = prompt('Enter your player name for the leaderboard:');
+        if (name && name.trim()) this._arcade.setPlayerName(name.trim());
+      }
+    } catch (err) {
+      console.warn('[Creepy Crawlers] Arcade offline:', err.message);
+      this._arcadeReady = false;
+    }
+  }
+
+  async _submitArcadeScore(score) {
+    if (!this._arcadeReady) return;
+    const p = this.player;
+    await this._arcade.submitScore({
+      score,
+      floor: this.floor,
+      kills: p.kills,
+      gold:  p.gold,
+      level: p.level,
+      class: p.charClass,
+    });
   }
 
   // ═══ Screen management ════════════════════════════════════════
@@ -532,7 +564,7 @@ export class Game {
   _gameOver() {
     const p = this.player;
     const score = this._calcScore();
-    this._saveScore(p, score);
+    this._submitArcadeScore(score);   // fire-and-forget
 
     document.getElementById('go-floor').textContent = this.floor;
     document.getElementById('go-kills').textContent = p.kills;
@@ -554,7 +586,7 @@ export class Game {
   _victory() {
     const p = this.player;
     const score = this._calcScore() + 1000;  // victory bonus
-    this._saveScore(p, score);
+    this._submitArcadeScore(score);   // fire-and-forget
 
     document.getElementById('win-kills').textContent = p.kills;
     document.getElementById('win-gold').textContent  = p.gold;
@@ -568,43 +600,37 @@ export class Game {
     return p.kills * 15 + p.gold + (this.floor - 1) * 100 + p.level * 50;
   }
 
-  // ═══ High scores ═════════════════════════════════════════════
-  _saveScore(player, score) {
-    const scores = this._getScores();
-    scores.push({
-      name:  player.name,
-      emoji: player.emoji,
-      floor: this.floor,
-      kills: player.kills,
-      score,
-      date: new Date().toLocaleDateString(),
-    });
-    scores.sort((a, b) => b.score - a.score);
-    scores.length = Math.min(scores.length, MAX_SCORES);
-    localStorage.setItem(SCORE_KEY, JSON.stringify(scores));
-  }
-
-  _getScores() {
-    try { return JSON.parse(localStorage.getItem(SCORE_KEY)) || []; }
-    catch { return []; }
-  }
-
-  _loadScoresDisplay() {
-    const scores = this._getScores();
+  // ═══ High scores (via Arcade leaderboard) ════════════════════
+  async _loadScoresDisplay() {
     const el = document.getElementById('scores-list');
     if (!el) return;
-    if (scores.length === 0) {
+
+    if (!this._arcadeReady) {
+      el.innerHTML = '<div class="score-empty">Leaderboard offline — play a game to connect!</div>';
+      return;
+    }
+
+    el.innerHTML = '<div class="score-empty">Loading…</div>';
+
+    const board = await this._arcade.getLeaderboard();
+    if (!board || !board.leaderboard || board.leaderboard.length === 0) {
       el.innerHTML = '<div class="score-empty">No scores yet. Go crawl!</div>';
       return;
     }
-    el.innerHTML = scores.map((s, i) => `
-      <div class="score-row">
-        <span class="score-rank">${i + 1}</span>
-        <span class="score-class">${s.emoji}</span>
-        <span class="score-name">${s.name} — Floor ${s.floor}</span>
-        <span class="score-pts">${s.score}</span>
-      </div>
-    `).join('');
+
+    const emojiMap = { beetle: '🪲', spider: '🕷️', mosquito: '🦟' };
+    el.innerHTML = board.leaderboard.map(entry => {
+      const emoji = emojiMap[entry.meta?.class] ?? '🐛';
+      const floor = entry.meta?.floor ?? '?';
+      return `
+        <div class="score-row">
+          <span class="score-rank">${entry.rank}</span>
+          <span class="score-class">${emoji}</span>
+          <span class="score-name">${entry.playerName} — Floor ${floor}</span>
+          <span class="score-pts">${entry.primaryScore}</span>
+        </div>
+      `;
+    }).join('');
   }
 
   // ═══ UI updates ═══════════════════════════════════════════════

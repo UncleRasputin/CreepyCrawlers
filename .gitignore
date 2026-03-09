@@ -416,3 +416,5 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+reference/arcade.js
+reference/arcade-local-game-writer-guide.md
