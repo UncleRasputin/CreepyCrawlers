@@ -65,10 +65,9 @@ export class Game {
   // ═══ Arcade integration ═══════════════════════════════════════
   async _initArcade() {
     try {
-      this._arcade = new Arcade({ gameId: 'creepycrawlers', debug: true });
+      this._arcade = new Arcade({ gameId: 'creepycrawlers' });
       await this._arcade.ready();
       this._arcadeReady = true;
-      console.log('[CC] Arcade ready. Player:', this._arcade.player);
       // Prompt for name on first visit
       if (this._arcade.player.name.startsWith('PLAYER_')) {
         const name = prompt('Enter your player name for the leaderboard:');
@@ -96,9 +95,7 @@ export class Game {
       level: Number(p.level),
       class: String(p.charClass),
     };
-    console.log('[CC] Submitting score:', meta);
-    const result = await this._arcade.submitScore(meta);
-    console.log('[CC] Submit result:', result);
+    await this._arcade.submitScore(meta);
   }
 
   // ═══ Screen management ════════════════════════════════════════
@@ -629,7 +626,6 @@ export class Game {
     el.innerHTML = '<div class="score-empty">Loading…</div>';
 
     const board = await this._arcade.getLeaderboard();
-    console.log('[CC] Leaderboard response:', board);
 
     if (!board || !board.leaderboard || board.leaderboard.length === 0) {
       el.innerHTML = '<div class="score-empty">No scores yet. Go crawl!</div>';
